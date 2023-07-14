@@ -1,0 +1,60 @@
+# Copyright 2023 Google LLC.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+asttokens==2.2.1
+backcall==0.2.0
+cachetools==5.2.1
+certifi==2022.12.7
+charset-normalizer==3.0.1
+db-dtypes==1.0.5
+decorator==5.1.1
+executing==1.2.0
+google-api-core==2.11.0
+google-auth==2.16.0
+google-cloud-bigquery==3.4.1
+google-cloud-core==2.3.2
+google-crc32c==1.5.0
+google-resumable-media==2.4.0
+googleapis-common-protos==1.58.0
+grpcio==1.51.1
+grpcio-status==1.51.1
+idna==3.4
+ipython==8.8.0
+jedi==0.18.2
+matplotlib-inline==0.1.6
+numpy==1.24.1
+packaging==21.3
+pandas==1.5.2
+parso==0.8.3
+pexpect==4.8.0
+pickleshare==0.7.5
+prompt-toolkit==3.0.36
+proto-plus==1.22.2
+protobuf==4.21.12
+ptyprocess==0.7.0
+pure-eval==0.2.2
+pyarrow==10.0.1
+pyasn1==0.4.8
+pyasn1-modules==0.2.8
+Pygments==2.14.0
+pyparsing==3.0.9
+python-dateutil==2.8.2
+pytz==2022.7
+requests==2.28.2
+rsa==4.9
+six==1.16.0
+stack-data==0.6.2
+traitlets==5.8.1
+urllib3==1.26.14
+wcwidth==0.2.5
