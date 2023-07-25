@@ -20,6 +20,37 @@ Run from project's root directory.
 import itertools
 from typing import Collection
 
+# TODO(): Replace it with OS env in the next CL.
+_INPUT_TABLE_STEP1 = ('sample.table_step01')
+
+
+def create_query(key_pattern: Collection[str]) -> str:
+  """Creates a query to run in BigQuery.
+
+  Args:
+    key_pattern: A key_pattern to run in SQL for BigQuery.
+
+  Returns:
+    A query embedding key_pattern and _INPUT_FILE_TABLE1.
+  """
+
+  comma_separated_keys = ', '.join(key_pattern)
+  query = f"""
+          SELECT
+            {comma_separated_keys}
+            , AdUnitId
+            , SUM(EstimatedBAckfillRevenue) as sum_revenue
+            , SUM(EstimatedBAckfillRevenue) / COUNT(1) * 1000 as eCPM
+            , COUNT(1) as impressions
+          FROM
+            `{_INPUT_TABLE_STEP1}`
+          GROUP BY
+            AdUnitId, {comma_separated_keys}
+          ;
+          """
+
+  return query
+
 
 def execute_combinations_of_kv(keys: Collection[str],
                                ) -> Collection[Collection[str]]:
