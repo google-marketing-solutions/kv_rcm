@@ -20,8 +20,20 @@ Run from project's root directory.
 import itertools
 from typing import Collection
 
+from google.cloud.bigquery import Client
+import pandas as pd
+
+
 # TODO(): Replace it with OS env in the next CL.
-_INPUT_TABLE_STEP1 = ('sample.table_step01')
+_PROJECT_ID = 'sample_project_id'
+# TODO(): Replace it with OS env in the next CL.
+_INPUT_TABLE_STEP1 = 'sample.table_step01'
+# TODO(): Replace it with OS env in the next CL.
+_OUTPUT_TABLE = 'sample.table_step02'
+# TODO(): Replace it with OS env in the next CL.
+_KV = ['tmp_key1', 'tmp_key2']
+
+_TEMPLATE_COLUMNS = ['AdUnitId', 'estimated_revenue', 'eCPM', 'imp']
 
 
 def create_query(key_pattern: Collection[str]) -> str:
@@ -52,13 +64,32 @@ def create_query(key_pattern: Collection[str]) -> str:
   return query
 
 
+def run_query(key_patterns: Collection[str]) -> None:
+  """Calculate combinations of Key-Value pattern.
+
+  Args:
+    key_patterns: A list of key_patterns that you want to calculate impressions,
+      eCPM and revenue each key_pattern.
+  """
+
+  clmns = _KV + _TEMPLATE_COLUMNS
+  df_ecpm = pd.DataFrame(columns=clmns)
+
+  for key_pattern in key_patterns:
+    query = create_query(key_pattern)
+    df_tmp = Client().query(query).to_dataframe()
+    df_ecpm = pd.concat([df_ecpm, df_tmp], ignore_index=True, sort=False)
+
+  df_ecpm.to_gbq(_OUTPUT_TABLE, _PROJECT_ID, if_exists='append')
+
+
 def execute_combinations_of_kv(keys: Collection[str],
                                ) -> Collection[Collection[str]]:
   """Calculate combinations of Key-Value pattern.
 
   Args:
     keys: A list of Keys of Key-Value. Example data is ['kv_age_group',
-    'kv_genre', 'kv_keywords'].
+      'kv_genre', 'kv_keywords'].
 
   Returns:
     A 2 dimension list of combination of Key-Value. Example data is [[
