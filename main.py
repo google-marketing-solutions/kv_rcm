@@ -16,8 +16,8 @@
 
 Run from project's root directory.
 """
-
 import itertools
+import logging
 from typing import Collection
 
 from google.cloud.bigquery import Client
@@ -34,6 +34,12 @@ _OUTPUT_TABLE = 'sample.table_step02'
 _KV = ['tmp_key1', 'tmp_key2']
 
 _TEMPLATE_COLUMNS = ['AdUnitId', 'estimated_revenue', 'eCPM', 'imp']
+
+logging.basicConfig(
+    format='%(asctime)s %(message)s',
+    datefmt='%m/%d/%Y %I:%M:%S %p',
+    level=logging.INFO,
+)
 
 
 def create_query(key_pattern: Collection[str]) -> str:
@@ -102,3 +108,15 @@ def execute_combinations_of_kv(keys: Collection[str],
       key_patterns.append(list(combination))
 
   return key_patterns
+
+
+def execute_run_query_with_all_key_value_patterns() -> None:
+  """Executes run_query with all combinations of Key Value pattern."""
+  logging.info('Start process of execute_run_query_with_all_key_value'
+               '_patterns...')
+
+  key_patterns = execute_combinations_of_kv(_KV)
+
+  run_query(key_patterns)
+  logging.info('Completed process of execute_run_query_with_all_key_value'
+               '_patterns.')
