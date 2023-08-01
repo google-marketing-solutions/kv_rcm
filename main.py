@@ -21,17 +21,20 @@ import logging
 from typing import Collection
 
 from google.cloud.bigquery import Client
+import helpers
 import pandas as pd
 
 
-# TODO(): Replace it with OS env in the next CL.
-_PROJECT_ID = 'sample_project_id'
-# TODO(): Replace it with OS env in the next CL.
-_INPUT_TABLE_STEP1 = 'sample.table_step01'
-# TODO(): Replace it with OS env in the next CL.
-_OUTPUT_TABLE = 'sample.table_step02'
-# TODO(): Replace it with OS env in the next CL.
-_KV = ['tmp_key1', 'tmp_key2']
+_DEFAULT_CONFIGS = 'configs.yaml'
+
+config_data = helpers.get_configs(_DEFAULT_CONFIGS)
+_PROJECT_ID = config_data.project_id
+_DATASET_NAME = config_data.dataset_name
+_PARSED_KV_TABLE = config_data.parsed_kv_table
+_AGGREGATED_DATA_WITH_KV = config_data.aggregated_data_with_kv
+_KV = config_data.key_patterns
+_INPUT_TABLE = _DATASET_NAME + '.' + _PARSED_KV_TABLE
+_OUTPUT_TABLE = _DATASET_NAME + '.' + _AGGREGATED_DATA_WITH_KV
 
 _TEMPLATE_COLUMNS = ['AdUnitId', 'estimated_revenue', 'eCPM', 'imp']
 
@@ -61,7 +64,7 @@ def create_query(key_pattern: Collection[str]) -> str:
             , SUM(EstimatedBAckfillRevenue) / COUNT(1) * 1000 as eCPM
             , COUNT(1) as impressions
           FROM
-            `{_INPUT_TABLE_STEP1}`
+            `{_INPUT_TABLE}`
           GROUP BY
             AdUnitId, {comma_separated_keys}
           ;
