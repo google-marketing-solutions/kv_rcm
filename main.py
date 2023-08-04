@@ -28,13 +28,14 @@ import pandas as pd
 _DEFAULT_CONFIGS = 'configs.yaml'
 
 config_data = helpers.get_configs(_DEFAULT_CONFIGS)
+_IMPRESSIONS_SOURCE = config_data.network_backfill_impressions
 _PROJECT_ID = config_data.project_id
 _DATASET_NAME = config_data.dataset_name
 _PARSED_KV_TABLE = config_data.parsed_kv_table
 _AGGREGATED_DATA_WITH_KV = config_data.aggregated_data_with_kv
 _DISTINCT_TABLE = config_data.distinct_table
 _KV = config_data.key_patterns
-_INPUT_TABLE = _DATASET_NAME + '.' + _PARSED_KV_TABLE
+_PARSED_KV_SOURCE = _DATASET_NAME + '.' + _PARSED_KV_TABLE
 _OUTPUT_TABLE = _DATASET_NAME + '.' + _AGGREGATED_DATA_WITH_KV
 _DISTINCT_OUTPUT_TABLE = _DATASET_NAME + '.' + _DISTINCT_TABLE
 
@@ -53,7 +54,39 @@ _DISTINCT_OUTPUT_QUERY = f"""
             FROM
               `{_OUTPUT_TABLE}`
           )
+          ;
           """
+
+
+def run_query_for_parsing_impression_table() -> None:
+  """Parses Key Value format of CustomTargeting column to columns."""
+
+  parsing_queries = []
+  for key in _KV:
+    parsing_queries.append(
+        f"""(select SPLIT(KV,'=')[1] from unnest(SPLIT(CustomTargeting, ';'))
+            KV where REGEXP_CONTAINS(KV, '^{key}=.*')) as {key})"""
+    )
+
+  comma_separated_parsing_query = ', '.join(parsing_queries)
+  query = f"""
+          CREATE OR REPLACE TABLE `{_PARSED_KV_SOURCE}` AS (
+            SELECT
+              FORMAT_TIMESTAMP("%Y%m%d", _PARTITIONTIME) as yyyymmdd
+              , CustomTargeting
+              , EstimatedBackfillRevenue
+              , AdUnitId
+              , {comma_separated_parsing_query}
+            FROM
+              `{_IMPRESSIONS_SOURCE}`
+            WHERE
+              CustomTargeting IS NOT NULL
+              AND TIMESTAMP_TRUNC(_PARTITIONTIME, DAY) BETWEEN TIMESTAMP(CURRENT_DATE() - 29) AND TIMESTAMP(CURRENT_DATE() - 1)
+          )
+          ;
+         """
+
+  Client().query(query)
 
 
 def create_query(key_pattern: Collection[str]) -> str:
@@ -63,7 +96,7 @@ def create_query(key_pattern: Collection[str]) -> str:
     key_pattern: A key_pattern to run in SQL for BigQuery.
 
   Returns:
-    A query embedding key_pattern and _INPUT_FILE_TABLE1.
+    A query embedding key_pattern and _PARSED_KV_SOURCE.
   """
 
   comma_separated_keys = ', '.join(key_pattern)
@@ -75,7 +108,7 @@ def create_query(key_pattern: Collection[str]) -> str:
             , SUM(EstimatedBAckfillRevenue) / COUNT(1) * 1000 as eCPM
             , COUNT(1) as impressions
           FROM
-            `{_INPUT_TABLE}`
+            `{_PARSED_KV_SOURCE}`
           GROUP BY
             AdUnitId, {comma_separated_keys}
           ;

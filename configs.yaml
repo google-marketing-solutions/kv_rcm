@@ -17,4 +17,5 @@ dataset_name: XXXXXXXXXX
 parsed_kv_table: STEP01_PARSED_KV_TABLE
 aggregated_data_with_kv: STEP02_AGGREGATED_DATA_WITH_KV
 distinct_table: STEP03_AGGREGATED_eCPM_DATA_WITHOUT_DUPLICATES
+network_backfill_impressions: XXX.YYY.p_NetworkBackfillImpressions
 key_patterns: ['kv_age', 'kv_keyword', 'kv_genre']
