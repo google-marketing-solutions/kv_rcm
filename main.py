@@ -32,9 +32,11 @@ _PROJECT_ID = config_data.project_id
 _DATASET_NAME = config_data.dataset_name
 _PARSED_KV_TABLE = config_data.parsed_kv_table
 _AGGREGATED_DATA_WITH_KV = config_data.aggregated_data_with_kv
+_DISTINCT_TABLE = config_data.distinct_table
 _KV = config_data.key_patterns
 _INPUT_TABLE = _DATASET_NAME + '.' + _PARSED_KV_TABLE
 _OUTPUT_TABLE = _DATASET_NAME + '.' + _AGGREGATED_DATA_WITH_KV
+_DISTINCT_OUTPUT_TABLE = _DATASET_NAME + '.' + _DISTINCT_TABLE
 
 _TEMPLATE_COLUMNS = ['AdUnitId', 'estimated_revenue', 'eCPM', 'imp']
 
@@ -43,6 +45,15 @@ logging.basicConfig(
     datefmt='%m/%d/%Y %I:%M:%S %p',
     level=logging.INFO,
 )
+
+_DISTINCT_OUTPUT_QUERY = f"""
+          CREATE OR REPLACE TABLE {_DISTINCT_OUTPUT_TABLE} AS (
+            SELECT DISTINCT
+              *
+            FROM
+              `{_OUTPUT_TABLE}`
+          )
+          """
 
 
 def create_query(key_pattern: Collection[str]) -> str:
@@ -123,3 +134,9 @@ def execute_run_query_with_all_key_value_patterns() -> None:
   run_query(key_patterns)
   logging.info('Completed process of execute_run_query_with_all_key_value'
                '_patterns.')
+
+
+def run_query_for_distinguishes_outputs() -> None:
+  """Distinguishes rows in output table."""
+
+  Client().query(_DISTINCT_OUTPUT_QUERY)
