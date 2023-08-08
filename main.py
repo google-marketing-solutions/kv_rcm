@@ -16,10 +16,12 @@
 
 Run from project's root directory.
 """
+
+import concurrent.futures
 import itertools
 import logging
+import threading
 from typing import Collection
-
 from google.cloud.bigquery import Client
 import helpers
 import pandas as pd
@@ -39,7 +41,10 @@ _PARSED_KV_SOURCE = _DATASET_NAME + '.' + _PARSED_KV_TABLE
 _OUTPUT_TABLE = _DATASET_NAME + '.' + _AGGREGATED_DATA_WITH_KV
 _DISTINCT_OUTPUT_TABLE = _DATASET_NAME + '.' + _DISTINCT_TABLE
 
-_TEMPLATE_COLUMNS = ['AdUnitId', 'estimated_revenue', 'eCPM', 'imp']
+_TEMPLATE_COLUMNS = (['AdUnitId', 'estimated_revenue', 'eCPM', 'imp'])
+
+_THREAD_NO = 4
+_KEY_SPLIT_NUMBER = 100
 
 logging.basicConfig(
     format='%(asctime)s %(message)s',
@@ -117,13 +122,17 @@ def create_query(key_pattern: Collection[str]) -> str:
   return query
 
 
-def run_query(key_patterns: Collection[str]) -> None:
+def run_query(key_patterns: Collection[str], thread_id: int == 1) -> None:
   """Calculate combinations of Key-Value pattern.
 
   Args:
     key_patterns: A list of key_patterns that you want to calculate impressions,
       eCPM and revenue each key_pattern.
+    thread_id: A thread id from calling of run_query.
   """
+  thread_no = threading.current_thread().name
+  logging.info('Start run_query task id: %s, (thread name: %s)',
+               thread_id, thread_no)
 
   clmns = _KV + _TEMPLATE_COLUMNS
   df_ecpm = pd.DataFrame(columns=clmns)
@@ -134,6 +143,8 @@ def run_query(key_patterns: Collection[str]) -> None:
     df_ecpm = pd.concat([df_ecpm, df_tmp], ignore_index=True, sort=False)
 
   df_ecpm.to_gbq(_OUTPUT_TABLE, _PROJECT_ID, if_exists='append')
+  logging.info('Completed run_query task id: %s, (thread name: %s)',
+               thread_id, thread_no)
 
 
 def execute_combinations_of_kv(keys: Collection[str],
@@ -159,13 +170,30 @@ def execute_combinations_of_kv(keys: Collection[str],
 
 def execute_run_query_with_all_key_value_patterns() -> None:
   """Executes run_query with all combinations of Key Value pattern."""
-  logging.info('Start process of execute_run_query_with_all_key_value'
+  logging.info('Starting the process of execute_run_query_with_all_key_value'
                '_patterns...')
 
   key_patterns = execute_combinations_of_kv(_KV)
 
-  run_query(key_patterns)
-  logging.info('Completed process of execute_run_query_with_all_key_value'
+  split_key_patterns = []
+  logging.info('Starting the process of splitting key_patterns = %s ...',
+               key_patterns)
+  for i in range(0, len(key_patterns), _KEY_SPLIT_NUMBER):
+    split_key_patterns.append(key_patterns[i:i+_KEY_SPLIT_NUMBER])
+  logging.info('Completed splitting key_patterns = %s', split_key_patterns)
+
+  logging.info('Starting a process of threadPoolExecutor %s ...', _THREAD_NO)
+  with concurrent.futures.ThreadPoolExecutor(
+      max_workers=_THREAD_NO,
+      thread_name_prefix='thread',
+      ) as executor:
+    for i, split_key_pattern in enumerate(split_key_patterns):
+      logging.info('Starting a process i= %s, split_key_pattern = %s ...',
+                   i, split_key_pattern)
+      executor.submit(run_query, split_key_pattern, i)
+      logging.info('Completed the process of i = %s, split_key_pattern = %s',
+                   i, split_key_pattern)
+  logging.info('Completed the process of execute_run_query_with_all_key_value'
                '_patterns.')
 
 
