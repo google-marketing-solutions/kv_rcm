@@ -201,3 +201,16 @@ def run_query_for_distinguishes_outputs() -> None:
   """Distinguishes rows in output table."""
 
   Client().query(_DISTINCT_OUTPUT_QUERY)
+
+
+def main() -> None:
+  """Executes Key Value Recommendation for UPR all steps."""
+  run_query_for_parsing_impression_table()
+
+  execute_run_query_with_all_key_value_patterns()
+
+  run_query_for_distinguishes_outputs()
+
+
+if __name__ == '__main__':
+  main()
