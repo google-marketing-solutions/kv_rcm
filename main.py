@@ -23,6 +23,7 @@ import logging
 import threading
 from typing import Collection
 from google.cloud.bigquery import Client
+from google.cloud.exceptions import NotFound
 import helpers
 import pandas as pd
 
@@ -37,11 +38,15 @@ _PARSED_KV_TABLE = config_data.parsed_kv_table
 _AGGREGATED_DATA_WITH_KV = config_data.aggregated_data_with_kv
 _DISTINCT_TABLE = config_data.distinct_table
 _KV = config_data.key_patterns
-_PARSED_KV_SOURCE = _DATASET_NAME + '.' + _PARSED_KV_TABLE
-_OUTPUT_TABLE = _DATASET_NAME + '.' + _AGGREGATED_DATA_WITH_KV
-_DISTINCT_OUTPUT_TABLE = _DATASET_NAME + '.' + _DISTINCT_TABLE
+_PARSED_KV_SOURCE = _PROJECT_ID + '.' + _DATASET_NAME + '.' + _PARSED_KV_TABLE
+_OUTPUT_TABLE = (
+    _PROJECT_ID + '.' + _DATASET_NAME + '.' + _AGGREGATED_DATA_WITH_KV
+)
+_DISTINCT_OUTPUT_TABLE = (
+    _PROJECT_ID + '.' + _DATASET_NAME + '.' + _DISTINCT_TABLE
+)
 
-_TEMPLATE_COLUMNS = (['AdUnitId', 'estimated_revenue', 'eCPM', 'imp'])
+_TEMPLATE_COLUMNS = ('AdUnitId', 'estimated_revenue', 'eCPM', 'imp')
 
 _THREAD_NO = 4
 _KEY_SPLIT_NUMBER = 100
@@ -53,7 +58,7 @@ logging.basicConfig(
 )
 
 _DISTINCT_OUTPUT_QUERY = f"""
-          CREATE OR REPLACE TABLE {_DISTINCT_OUTPUT_TABLE} AS (
+          CREATE OR REPLACE TABLE `{_DISTINCT_OUTPUT_TABLE}` AS (
             SELECT DISTINCT
               *
             FROM
@@ -63,14 +68,20 @@ _DISTINCT_OUTPUT_QUERY = f"""
           """
 
 
-def run_query_for_parsing_impression_table() -> None:
-  """Parses Key Value format of CustomTargeting column to columns."""
+def run_query_for_parsing_impression_table(client: Client) -> None:
+  """Parses Key Value format of CustomTargeting column to columns.
+  
+  Args:
+    client: BigQuery Client.
+  """
 
+  logging.info('Starting STEP01 run query for parsing key values...')
   parsing_queries = []
   for key in _KV:
     parsing_queries.append(
-        f"""(select SPLIT(KV,'=')[1] from unnest(SPLIT(CustomTargeting, ';'))
-            KV where REGEXP_CONTAINS(KV, '^{key}=.*')) as {key})"""
+        ('(select SPLIT(KV,"=")[1] from unnest(SPLIT(CustomTargeting, ";"))'
+         'KV where REGEXP_CONTAINS(KV, "^{key}=.*")) as {key}'
+        ).format(key=key)
     )
 
   comma_separated_parsing_query = ', '.join(parsing_queries)
@@ -91,7 +102,10 @@ def run_query_for_parsing_impression_table() -> None:
           ;
          """
 
-  Client().query(query)
+  client.query(query)
+
+  _validate_table_exist(client, _PARSED_KV_SOURCE)
+  logging.info('Completed STEP01 run query for parsing key values.')
 
 
 def create_query(key_pattern: Collection[str]) -> str:
@@ -122,10 +136,15 @@ def create_query(key_pattern: Collection[str]) -> str:
   return query
 
 
-def run_query(key_patterns: Collection[str], thread_id: int == 1) -> None:
+def run_query(
+    client: Client,
+    key_patterns: Collection[str],
+    thread_id: int == 1
+    ) -> None:
   """Calculate combinations of Key-Value pattern.
 
   Args:
+    client: BigQuery Client.
     key_patterns: A list of key_patterns that you want to calculate impressions,
       eCPM and revenue each key_pattern.
     thread_id: A thread id from calling of run_query.
@@ -134,12 +153,12 @@ def run_query(key_patterns: Collection[str], thread_id: int == 1) -> None:
   logging.info('Start run_query task id: %s, (thread name: %s)',
                thread_id, thread_no)
 
-  clmns = _KV + _TEMPLATE_COLUMNS
+  clmns = _KV + list(_TEMPLATE_COLUMNS)
   df_ecpm = pd.DataFrame(columns=clmns)
 
   for key_pattern in key_patterns:
     query = create_query(key_pattern)
-    df_tmp = Client().query(query).to_dataframe()
+    df_tmp = client.query(query).to_dataframe()
     df_ecpm = pd.concat([df_ecpm, df_tmp], ignore_index=True, sort=False)
 
   df_ecpm.to_gbq(_OUTPUT_TABLE, _PROJECT_ID, if_exists='append')
@@ -168,10 +187,14 @@ def execute_combinations_of_kv(keys: Collection[str],
   return key_patterns
 
 
-def execute_run_query_with_all_key_value_patterns() -> None:
-  """Executes run_query with all combinations of Key Value pattern."""
-  logging.info('Starting the process of execute_run_query_with_all_key_value'
-               '_patterns...')
+def execute_run_query_with_all_key_value_patterns(client: Client) -> None:
+  """Executes run_query with all combinations of Key Value pattern.
+
+  Args:
+    client: BigQuery Client.
+  """
+  logging.info('Starting STEP02 the process of running queries with all key'
+               'value patterns...')
 
   key_patterns = execute_combinations_of_kv(_KV)
 
@@ -190,26 +213,51 @@ def execute_run_query_with_all_key_value_patterns() -> None:
     for i, split_key_pattern in enumerate(split_key_patterns):
       logging.info('Starting a process i= %s, split_key_pattern = %s ...',
                    i, split_key_pattern)
-      executor.submit(run_query, split_key_pattern, i)
+      executor.submit(run_query, client, split_key_pattern, i)
       logging.info('Completed the process of i = %s, split_key_pattern = %s',
                    i, split_key_pattern)
-  logging.info('Completed the process of execute_run_query_with_all_key_value'
-               '_patterns.')
+
+  _validate_table_exist(client, _OUTPUT_TABLE)
+  logging.info('Completed STEP02 the process of running queries with all key'
+               'value patterns.')
 
 
-def run_query_for_distinguishes_outputs() -> None:
-  """Distinguishes rows in output table."""
+def run_query_for_distinguishes_outputs(client: Client) -> None:
+  """Makes the rows in the output table unique."""
 
-  Client().query(_DISTINCT_OUTPUT_QUERY)
+  logging.info('Starting STEP03 Doing distinct output table...')
+  client.query(_DISTINCT_OUTPUT_QUERY)
+  logging.info('Completed STEP03 Doing distinct output table.')
+
+
+def _validate_table_exist(client: Client, table_name: str) -> None:
+  """Validetes whether table exists in BigQuery.
+
+  Args:
+    client: BigQuery Client.
+    table_name: A table name in BigQuery.
+
+  Raise:
+    ValueError: error occurring when BigQuery table does not exist.
+  """
+
+  try:
+    client.get_table(table_name)
+  except NotFound as e:
+    raise ValueError(
+        'BigQuery path not exists: {table_name}'.format(table_name=table_name)
+    ) from e
 
 
 def main() -> None:
   """Executes Key Value Recommendation for UPR all steps."""
-  run_query_for_parsing_impression_table()
+  client = Client(project=_PROJECT_ID)
+  _validate_table_exist(client, _IMPRESSIONS_SOURCE)
+  run_query_for_parsing_impression_table(client)
 
-  execute_run_query_with_all_key_value_patterns()
+  execute_run_query_with_all_key_value_patterns(client)
 
-  run_query_for_distinguishes_outputs()
+  run_query_for_distinguishes_outputs(client)
 
 
 if __name__ == '__main__':
