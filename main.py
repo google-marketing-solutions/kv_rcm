@@ -70,7 +70,7 @@ _DISTINCT_OUTPUT_QUERY = f"""
 
 def run_query_for_parsing_impression_table(client: Client) -> None:
   """Parses Key Value format of CustomTargeting column to columns.
-  
+
   Args:
     client: BigQuery Client.
   """
@@ -102,7 +102,8 @@ def run_query_for_parsing_impression_table(client: Client) -> None:
           ;
          """
 
-  client.query(query)
+  query_job = client.query(query)
+  query_job.result()
 
   _validate_table_exist(client, _PARSED_KV_SOURCE)
   logging.info('Completed STEP01 run query for parsing key values.')
@@ -226,7 +227,8 @@ def run_query_for_distinguishes_outputs(client: Client) -> None:
   """Makes the rows in the output table unique."""
 
   logging.info('Starting STEP03 Doing distinct output table...')
-  client.query(_DISTINCT_OUTPUT_QUERY)
+  query_job = client.query(_DISTINCT_OUTPUT_QUERY)
+  query_job.result()
   logging.info('Completed STEP03 Doing distinct output table.')
 
 
