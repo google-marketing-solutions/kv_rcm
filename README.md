@@ -22,7 +22,7 @@ Transfer, and analyze to propose the optimal UPR.
 
 ## Usage
 1. Set up a Python execute environment. This solution require Python
-version 3.10.9+.
+version 3.11.3+.
 
 2. Install python libraries.
 ```
