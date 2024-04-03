@@ -35,7 +35,7 @@ pandas==2.0.3
 pandas-gbq==0.19.2
 proto-plus==1.22.3
 protobuf==4.23.4
-pyarrow==13.0.0
+pyarrow==14.0.1
 pyasn1==0.5.0
 pyasn1-modules==0.3.0
 pydata-google-auth==1.8.2
