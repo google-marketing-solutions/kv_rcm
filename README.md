@@ -10,7 +10,7 @@ Transfer, and analyze to propose the optimal UPR.
 
 
 ## Requirements
-- Python 3.10.9+
+- Python 3.11.4+
 - Google Cloud
   - Create a BigQuery project and dataset before executing this solution.
 - [Google Ad Manager Data Transfer](https://support.google.com/admanager/answer/1733124)

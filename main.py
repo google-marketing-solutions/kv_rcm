@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Functions for aggregating Key-Valu Recommendation for UPR in Data Transfer.
+"""Functions for aggregating Key-Value Recommendation for UPR in Data Transfer.
 
 Run from project's root directory.
 """
